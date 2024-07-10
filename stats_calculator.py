@@ -43,11 +43,11 @@ def stats(entity):
 
     dic['Claims_tot'] = total_claims
     dic['Claims_ref'] = ref_claims
-    dic['Claims_ref_ratio'] = round(ref_claim_ratio, 4)*100
+    dic['Claims_ref_ratio'] = round(ref_claim_ratio*100, 2)
     # dic['Claims_ref_avg'] = avg_refs_per_ref_claim
     dic['Property_tot'] = total_property_types
     dic['Property_ref'] = ref_property_types
-    dic['Property_ref_ratio'] = round(ref_property_type_ratio, 4)*100
+    dic['Property_ref_ratio'] = round(ref_property_type_ratio*100, 2)
     # dic['Property_ref_avg'] = avg_ref_claims_per_property
     dic['Ref_support'] = 60
     dic['Ref_unsupport'] = 10
@@ -65,6 +65,7 @@ def entailmentResult(results):
             most_frequent = value_counts.index[0]
             aggregated_.append(f"{most_frequent}, with this sentence: Empty")
     result = pd.concat([result, pd.DataFrame(aggregated_, columns=['final_result'])], axis=1)[['triple', 'final_result', 'url']]
+    print(result)
     li = []
     for i in result['triple'].unique():
         for idx, row in result[result['triple']==i][['final_result','url']].iterrows():

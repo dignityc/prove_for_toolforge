@@ -62,32 +62,13 @@ def random_select():
     postdata = {'Qid':item_id, 'label': label, 'pair': pair, 'statics':statics, 'html_content': html_content}
     return postdata
 
-@app.route('/get_statics')
-def get_statistics():
-    label = request.args.get('label', '')
-    label = re.sub(r' \([^)]*\)', '', label)
-    item_id = label_to_id.get(label)
-    if item_id and item_id in data:
-        label = serialize_data(data[item_id]['entity']['label'])
-        pair = f"{data[item_id]['entity']['label']} ({item_id})"
-        result_values = [data[item_id]['entity']['label']]
-        result_values += stats_calculator.stats(data[item_id]['entity'])
-        print(result_values)
-        #result_values += stats_calculator.entailmentResult(data[item_id]['result'])
-        #html_content = stats_calculator.format_to_html(result_values)
-        postdata = {'Qid':item_id, 'label': label, 'pair': pair, 'statics': result_values}
-        return postdata
-    return jsonify({'error': 'Data not found'})
-
 @app.route('/get_data')
 def get_data():
     label = request.args.get('label', '')
     label = re.sub(r' \([^)]*\)', '', label)
     item_id = label_to_id.get(label)
     if item_id and item_id in data:
-        #print(item_id)
         label = serialize_data(data[item_id]['entity']['label'])
-        #print(result)
         pair = f"{data[item_id]['entity']['label']} ({item_id})"
         result_values = [data[item_id]['entity']['label']]
         print(result_values)
@@ -95,7 +76,7 @@ def get_data():
         print(statics)
         result_values += stats_calculator.stats(data[item_id]['entity'])[0]
         support = stats_calculator.entailmentResult(data[item_id]['result'])
-        print(support)
+        #print(support)
         result_values += support
         html_content = stats_calculator.format_to_html(result_values)
         postdata = {'Qid':item_id, 'label': label, 'pair': pair, 'statics': statics,'html_content': html_content}

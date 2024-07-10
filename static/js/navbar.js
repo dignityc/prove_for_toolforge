@@ -30,6 +30,7 @@
                     $.get("/get_data", {label: label}, function(data){
                         //console.log(data)
                         $("#data-display").html(data.html_content);
+                        $("#title").text(data.pair);
                         updateCharts(data.statics);
                         updateDescription('donut1', ['Total: '+ data.statics.Claims_tot, 'Referenced: '+data.statics.Claims_ref, 'Completeness: '+data.statics.Claims_ref_ratio+'%']);
                         updateDescription('donut2', ['Total: '+ data.statics.Property_tot, 'Referenced: '+data.statics.Property_ref, 'Completeness: '+data.statics.Property_ref_ratio+'%']);
@@ -51,6 +52,7 @@
                 $.get("/random", function(data) {
                     $("#data-display").html(data.html_content);
                     $("#searchInput").val(data.pair);
+                    $("#title").text(data.pair);
                     updateCharts(data.statics);
                     updateDescription('donut1', ['Total: '+ data.statics.Claims_tot, 'Referenced: '+data.statics.Claims_ref, 'Completeness: '+data.statics.Claims_ref_ratio+'%']);
                     updateDescription('donut2', ['Total: '+ data.statics.Property_tot, 'Referenced: '+data.statics.Property_ref, 'Completeness: '+data.statics.Property_ref_ratio+'%']);
