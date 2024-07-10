@@ -5,6 +5,7 @@ import html
 def stats(entity):
     # Calculate total claims
     li =[]
+    dic = {}
     total_claims = sum(len(claims) for claims in entity['claims'].values())
 
     # Calculate claims with references and total references
@@ -40,7 +41,18 @@ def stats(entity):
     li.append(f"7. Ratio of property types with references to total property types: {ref_property_type_ratio:.2%}")
     li.append(f"8. Average number of claims with references per property type with reference: {avg_ref_claims_per_property:.2f}")
 
-    return li
+    dic['Claims_tot'] = total_claims
+    dic['Claims_ref'] = ref_claims
+    dic['Claims_ref_ratio'] = round(ref_claim_ratio, 4)*100
+    # dic['Claims_ref_avg'] = avg_refs_per_ref_claim
+    dic['Property_tot'] = total_property_types
+    dic['Property_ref'] = ref_property_types
+    dic['Property_ref_ratio'] = round(ref_property_type_ratio, 4)*100
+    # dic['Property_ref_avg'] = avg_ref_claims_per_property
+    dic['Ref_support'] = 60
+    dic['Ref_unsupport'] = 10
+    dic['Ref_noinfo'] = 20
+    return [li, dic]
 
 def entailmentResult(results):
     result = results.reset_index(drop=True).copy()
@@ -58,6 +70,7 @@ def entailmentResult(results):
         for idx, row in result[result['triple']==i][['final_result','url']].iterrows():
             li.append(f"{i}")
             li.append(f"{row['final_result']}, {row['url']}")
+    print(li)
     return li
 
 def format_to_html(data):
