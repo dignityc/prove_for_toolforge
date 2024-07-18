@@ -9,7 +9,7 @@ body {
     /*height: 100vh;*/
 }
 
-#title {
+.title {
     /* background-color: #fff; */
     padding: 10px;
     border-radius: 10px;

@@ -89,16 +89,18 @@ def format_to_html(data):
     </style>
     """
 
+    # html_content = f"""
+    # <div class="wikidata-content">
+    #     {style}
+    #     <h1>{data[0]}</h1>
+    #     <h2>Statistics</h2>
+    #     <div class='statistics'>
+    # """
     html_content = f"""
-    <div class="wikidata-content">
-        {style}
-        <h1>{data[0]}</h1>
-        <h2>Statistics</h2>
-        <div class='statistics'>
     """
 
-    for stat in data[1:9]:
-        html_content += f"<p>{html.escape(stat)}</p>"
+    # for stat in data[1:9]:
+    #     html_content += f"<p>{html.escape(stat)}</p>"
     
     html_content += """
         </div>

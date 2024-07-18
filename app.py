@@ -31,6 +31,10 @@ def serialize_data(obj):
 def index():
     return render_template('index.html', labels=label_to_id.keys(), Qids=label_to_id.values())
 
+@app.route('/home')
+def home():
+    return render_template('home.html')
+
 @app.route('/search')
 def search():
     query = request.args.get('query', '').lower() 
