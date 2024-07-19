@@ -38,6 +38,7 @@ api.get( { action: 'query', meta: 'tokens'}).then(
                    });       
             });
 }	
+
 function addtosuggestions(result, labelsUL, entityID) {
 var add = '';
 if (result.data_type=='wikibase-item')
@@ -77,45 +78,38 @@ if (result.data_type=='wikibase-item')
 });
 }
 
-function addProveResult(apiResponse, provelabelsUL, entityID) {
-    var $insertElem = $('<tr><td> ' +
-            '<label><a href="https://www.wikidata.org/wiki/Property:'+ result.property + '">' + 
-            result.property + '</a></td><td>' + result.label + '</td><td>' + result.base_frequency + ' '+ 
-            '</label></td><td>' + add +'</td></tr>');
-    labelsUL.append($insertElem);
-    
-    $insertElem.find('.add_button a').on('click', function(e) {
-        e.stopPropagation();
-        e.preventDefault(); 
-        $insertElem.find('#add').slideToggle("fast");
-        $insertElem.find('.add_button a').hide();
-        $insertElem.find('.input').focus();
-    });
-    $(document).click(function(e) {
-            // e.stopPropagation();
-            $insertElem.find('.add_button a').show();
-            $insertElem.find("#add").hide();
-    });
-    $insertElem.find("#add").click(function(e) {
-      e.stopPropagation();
-    });
-    $insertElem.find('#add a').on('click', function(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    if (result.data_type=='wikibase-item')
-    {
-        var selection = $(this).prev('input').data('entityselector').selectedEntity();
-        var snak = JSON.stringify({ "entity-type": 'item', "numeric-id": selection.id.substring(1) });
-        addstatement(entityID, result.property, snak);
-    }
-    });
-}
 
 // Prove Functions
 function updateProveHealthIndicator(data) {
     var $indicators = $('div.mw-indicators');
     var $existingLink = $indicators.find('a');
     var healthValue = data.health_value || 'N/A';
+    var $newSpan = $('<span>').text(' Prove Health Lv. ' + healthValue).css('margin-left', '10px');
+    $existingLink.after($newSpan);
+
+    if (healthValue === 'Not processed yet') {
+        const $button = $('<button id="prior-process-btn">Prior</button>');
+        $button.click(() => {
+            // handle click event, call the prior queue API
+            console.log('Processing...');
+            alert('Processing...');
+        });
+        $indicators.append($button);
+    }
+}
+
+function updateProveHealthIndicator(data) {
+    var $indicators = $('div.mw-indicators');
+    var $existingLink = $indicators.find('a');
+    var healthValue = data.health_value;
+    
+    if (typeof healthValue === 'number') {
+        healthValue = healthValue.toFixed(2);
+    } else if (healthValue === undefined || healthValue === null) {
+        healthValue = 'N/A';
+    }
+
+
     var $newSpan = $('<span>').text(' Health lv.: ' + healthValue).css('margin-left', '10px');
     $existingLink.after($newSpan);
 
@@ -130,33 +124,9 @@ function updateProveHealthIndicator(data) {
     }
 }
 
-// function createProveTables(data, $labelsParent) {
-//     //Prove DOMs
-//     // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
-//     // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
-//     // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
-//     // proveTabelsUL.append(proveTablehead);
-//     // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
-    
-//     const $tablesContainer = $('<div id="reference-tables"></div>');
-    
-//     const categories = ["NOT ENOUGH INFO", "REFUTES", "SUPPORTS"];
-    
-//     categories.forEach(category => {
-//         if (data[category] && typeof data[category] === 'object') {
-//             const tableData = transformData(data[category]);
-//             $tablesContainer.append(createTable(category, tableData));
-//         } else {
-//             console.warn(`${category} data is missing or invalid`);
-//         }
-//     });
-
-//     $labelsParent.prepend($tablesContainer);
-// }
-
 function createProveTables(data, $labelsParent) {
     const $container = $('<div id="prove-container"></div>');
-    const $toggleButton = $('<button id="prove-toggle">Proven</button>');
+    const $toggleButton = $('<button id="prove-toggle">Prove</button>');
     const $tablesContainer = $('<div id="prove-tables" style="display: none;"></div>');
 
     $container.append($toggleButton).append($tablesContainer);
@@ -184,61 +154,21 @@ function createProveTables(data, $labelsParent) {
 function transformData(categoryData) {
     const result = [];
     const length = categoryData.qid ? Object.keys(categoryData.qid).length : 0;
-    
-    for (let i = 0; i < length; i++) {
+    const keys = Object.keys(categoryData.qid || {});
+    keys.forEach(key => {
         result.push({
-            qid: categoryData.qid[i] || 'N/A',
-            result: categoryData.result[i] || 'N/A',
-            result_sentence: categoryData.result_sentence[i] || 'N/A',
-            triple: categoryData.triple[i] || 'N/A',
-            url: categoryData.url[i] || '#'
+            qid: categoryData.qid[key] || 'N/A',
+            result: categoryData.result[key] || 'N/A',
+            result_sentence: categoryData.result_sentence[key] || 'N/A',
+            triple: categoryData.triple[key] || 'N/A',
+            url: categoryData.url[key] || '#'
         });
-    }
+    });
     
-    console.log('Transformed data:', result);
-
+    console.log('Transformed data:', result);  
     return result;
 }
 
-// function createTable(title, data) {
-//     const $table = $(`
-//         <div class="expandable-table">
-//             <h3>${title}</h3>
-//             <table>
-//                 <thead>
-//                     <tr>
-//                         <th>Results</th>
-//                         <th>Triple</th>
-//                         <th>Result Sentences</th>
-//                         <th>URL</th>
-//                         <th>Modify</th>
-//                     </tr>
-//                 </thead>
-//                 <tbody>
-//                 </tbody>
-//             </table>
-//         </div>
-//     `);
-
-//     const $tbody = $table.find('tbody');
-//     data.forEach(item => {
-//         const $row = $(`
-//             <tr>
-//                 <td>${item.result}</td>
-//                 <td>${item.triple}</td>
-//                 <td>${item.result_sentences}</td>
-//                 <td><a href="${item.url}" target="_blank">Link</a></td>
-//                 <td><button class="modify-btn">Modify</button></td>
-//             </tr>
-//         `);
-//         $row.find('.modify-btn').click(() => handleModify(item));
-//         $tbody.append($row);
-//     });
-
-//     $table.find('h3').click(() => $table.find('table').slideToggle());
-
-//     return $table;
-// }
 function createTable(title, data) {
     const $table = $(`
         <div class="expandable-table" style="max-height: 300px; overflow-y: auto;">
@@ -368,13 +298,6 @@ function init()
     var labelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
     var translate_help = $('<span class="wikibase-entitytermsview-entitytermsforlanguagelistview-configure" id="translate"><a href="https://www.wikidata.org/wiki/Wikidata:Recoin/translation"> [Help with translations]</a></span>');
     var help = true;
-
-    //Prove DOMs
-    // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
-    // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
-    // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
-    // proveTabelsUL.append(proveTablehead);
-    // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
 
     $.getJSON( 'https://www.wikidata.org/w/api.php?action=query&prop=extracts&titles=Wikidata:Recoin/translation&format=json', 
        function ( result )
