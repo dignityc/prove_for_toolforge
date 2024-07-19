@@ -1,10 +1,7 @@
 /**
-* Recoin: Relative Completeness Indicator
-* 
-* Explanations module: Lists the most important missing attributes, which are used for computing the relative completeness indicator and adds a relative completeness indicator symbol to the page status indicators
-* 
-* Developers  : Vevake Balaraman (vevake.balaraman@gmail.com), Simon Razniewski (razniewski@inf.unibz.it), Albin Ahmeti (albin.ahmeti@gmail.com)
-* Inspired by : COOL-WD: COmpleteness toOL for WikiData (Fariz Darari)
+* Prove: Pro-verification tool for Wikidata referrences 
+* Developers  : names (emails)
+* Inspired by : Recoin: Relative Completeness Indicator (Vevake Balaraman, Simon Razniewski, and Albin Ahmeti), and COOL-WD: COmpleteness toOL for WikiData (Fariz Darari)
 */
 function loadentityselector(){
     try {
@@ -79,9 +76,151 @@ if (result.data_type=='wikibase-item')
 }
 });
 }
-( function( mw, $ ) {
+
+function addProveResult(apiResponse, provelabelsUL, entityID) {
+    var $insertElem = $('<tr><td> ' +
+            '<label><a href="https://www.wikidata.org/wiki/Property:'+ result.property + '">' + 
+            result.property + '</a></td><td>' + result.label + '</td><td>' + result.base_frequency + ' '+ 
+            '</label></td><td>' + add +'</td></tr>');
+    labelsUL.append($insertElem);
+    
+    $insertElem.find('.add_button a').on('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault(); 
+        $insertElem.find('#add').slideToggle("fast");
+        $insertElem.find('.add_button a').hide();
+        $insertElem.find('.input').focus();
+    });
+    $(document).click(function(e) {
+            // e.stopPropagation();
+            $insertElem.find('.add_button a').show();
+            $insertElem.find("#add").hide();
+    });
+    $insertElem.find("#add").click(function(e) {
+      e.stopPropagation();
+    });
+    $insertElem.find('#add a').on('click', function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (result.data_type=='wikibase-item')
+    {
+        var selection = $(this).prev('input').data('entityselector').selectedEntity();
+        var snak = JSON.stringify({ "entity-type": 'item', "numeric-id": selection.id.substring(1) });
+        addstatement(entityID, result.property, snak);
+    }
+    });
+}
+
+// Prove Functions
+function updateProveHealthIndicator(data) {
+    var $indicators = $('div.mw-indicators');
+    var $existingLink = $indicators.find('a');
+    var healthValue = data.health_value || 'N/A';
+    var $newSpan = $('<span>').text(' Health lv.: ' + healthValue).css('margin-left', '10px');
+    $existingLink.after($newSpan);
+
+    if (healthValue === 'Not processed yet') {
+        const $button = $('<button id="prior-process-btn">Prior</button>');
+        $button.click(() => {
+            // handle click event, call the prior queue API
+            console.log('Processing...');
+            alert('Processing...');
+        });
+        $indicators.append($button);
+    }
+}
+
+function createProveTables(data, $labelsParent) {
+    //Prove DOMs
+    // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
+    // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
+    // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
+    // proveTabelsUL.append(proveTablehead);
+    // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
+    
+    const $tablesContainer = $('<div id="reference-tables"></div>');
+    
+    const categories = ["NOT ENOUGH INFO", "REFUTES", "SUPPORTS"];
+    
+    categories.forEach(category => {
+        if (data[category] && typeof data[category] === 'object') {
+            const tableData = transformData(data[category]);
+            $tablesContainer.append(createTable(category, tableData));
+        } else {
+            console.warn(`${category} data is missing or invalid`);
+        }
+    });
+
+    $labelsParent.prepend($tablesContainer);
+}
+
+function transformData(categoryData) {
+    const result = [];
+    const length = categoryData.qid ? Object.keys(categoryData.qid).length : 0;
+    
+    for (let i = 0; i < length; i++) {
+        result.push({
+            qid: categoryData.qid[i] || 'N/A',
+            result: categoryData.result[i] || 'N/A',
+            result_sentence: categoryData.result_sentence[i] || 'N/A',
+            triple: categoryData.triple[i] || 'N/A',
+            url: categoryData.url[i] || '#'
+        });
+    }
+    
+    return result;
+}
+
+function createTable(title, data) {
+    const $table = $(`
+        <div class="expandable-table">
+            <h3>${title}</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Results</th>
+                        <th>Triple</th>
+                        <th>Result Sentences</th>
+                        <th>URL</th>
+                        <th>Modify</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    `);
+
+    const $tbody = $table.find('tbody');
+    data.forEach(item => {
+        const $row = $(`
+            <tr>
+                <td>${item.result}</td>
+                <td>${item.triple}</td>
+                <td>${item.result_sentences}</td>
+                <td><a href="${item.url}" target="_blank">Link</a></td>
+                <td><button class="modify-btn">Modify</button></td>
+            </tr>
+        `);
+        $row.find('.modify-btn').click(() => handleModify(item));
+        $tbody.append($row);
+    });
+
+    $table.find('h3').click(() => $table.find('table').slideToggle());
+
+    return $table;
+}
+
+function handleModify(item) {
+
+    console.log('Modifying:', item);
+}
+
+//Initiate the plugin
+( 
+function( mw, $ ) {
 'use strict';
-console.log('recoin-plugin loaded');
+console.log('prove-plugin loaded');
 /**
  * Check if we're viewing an item
  */
@@ -114,13 +253,13 @@ function init()
     var labelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
     var translate_help = $('<span class="wikibase-entitytermsview-entitytermsforlanguagelistview-configure" id="translate"><a href="https://www.wikidata.org/wiki/Wikidata:Recoin/translation"> [Help with translations]</a></span>');
     var help = true;
-    function updateUIWithAPIResponse(data) {
-        var $indicators = $('div.mw-indicators');
-        var $existingLink = $indicators.find('a');
-        var healthValue = data.health_value || 'N/A';
-        var $newSpan = $('<span>').text(' Health: ' + healthValue).css('margin-left', '10px');
-        $existingLink.after($newSpan);
-    }
+
+    //Prove DOMs
+    // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
+    // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
+    // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
+    // proveTabelsUL.append(proveTablehead);
+    // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
 
     $.getJSON( 'https://www.wikidata.org/w/api.php?action=query&prop=extracts&titles=Wikidata:Recoin/translation&format=json', 
        function ( result )
@@ -144,14 +283,14 @@ function init()
                }
            }
            var toggleSlider = $('<span class = "ui-toggler-icon ui-icon ui-icon-triangle-1-e" id = "status"></span>\
-<span class="ui-toggler-label">'+ mw.html.escape( title ) +'</span>');
+        <span class="ui-toggler-label">'+ mw.html.escape( title ) +'</span>');
         labelsText.append(toggleSlider);
-        labelsParent.append(labelsText);
+        labelsParent.append(labelsText)
            if (help==1)
            {
                labelsParent.append(translate_help);
            }
-       });
+        });
     $.getJSON( 'https://recoin.toolforge.org/getmissingattributes.php?callback=?', 'subject=' + entityID + '&lang=' + lang + '&n=20',
            function ( result ) 
            {
@@ -197,24 +336,25 @@ function init()
         $img.attr( 'title',  infoText);
         $img.attr( 'alt',  infoText);
         $link.append( $img ).prependTo( 'div.mw-indicators' )
-            // ProVe part
-
-    fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('CompResult API Response:', data);
-            updateUIWithAPIResponse(data);
-        })
-        .catch(error => {
-            console.error('Error fetching CompResult:', error);
+        
+        // ProVe part
+        fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('CompResult API Response:', data);
+                updateProveHealthIndicator(data);
+                createProveTables(data, labelsParent);
+            })
+            .catch(error => {
+                console.error('Error fetching CompResult:', error);
+            });
         });
-    });
-}
+    }
 $( function () {
     // init();
     mw.hook( 'wikipage.content' ).add( init );
