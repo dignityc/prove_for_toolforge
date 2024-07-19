@@ -130,28 +130,55 @@ function updateProveHealthIndicator(data) {
     }
 }
 
+// function createProveTables(data, $labelsParent) {
+//     //Prove DOMs
+//     // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
+//     // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
+//     // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
+//     // proveTabelsUL.append(proveTablehead);
+//     // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
+    
+//     const $tablesContainer = $('<div id="reference-tables"></div>');
+    
+//     const categories = ["NOT ENOUGH INFO", "REFUTES", "SUPPORTS"];
+    
+//     categories.forEach(category => {
+//         if (data[category] && typeof data[category] === 'object') {
+//             const tableData = transformData(data[category]);
+//             $tablesContainer.append(createTable(category, tableData));
+//         } else {
+//             console.warn(`${category} data is missing or invalid`);
+//         }
+//     });
+
+//     $labelsParent.prepend($tablesContainer);
+// }
+
 function createProveTables(data, $labelsParent) {
-    //Prove DOMs
-    // var proveTabelsDOM = $('<div id="prove-property" style="display:none;overflow:auto;max-height:300px"></div>');
-    // var proveTabelsUL = $('<table id="porve_props" frame="box" style="margin-left:30px"></table>');
-    // var proveTablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Triple</td><td>Result</td><td>Result Sentences</td><td>URL</td></tr></thead>';
-    // proveTabelsUL.append(proveTablehead);
-    // var proveTabelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
-    
-    const $tablesContainer = $('<div id="reference-tables"></div>');
-    
-    const categories = ["NOT ENOUGH INFO", "REFUTES", "SUPPORTS"];
-    
+    const $container = $('<div id="prove-container"></div>');
+    const $toggleButton = $('<button id="prove-toggle">Proven</button>');
+    const $tablesContainer = $('<div id="prove-tables" style="display: none;"></div>');
+
+    $container.append($toggleButton).append($tablesContainer);
+
+    const categories = [
+        { name: "SUPPORTS", label: "Triples with supportive reference" },
+        { name: "REFUTES", label: "Triples with unsupportive reference" },
+        { name: "NOT ENOUGH INFO", label: "Triples with not enough information reference" }
+    ];
+
     categories.forEach(category => {
-        if (data[category] && typeof data[category] === 'object') {
-            const tableData = transformData(data[category]);
-            $tablesContainer.append(createTable(category, tableData));
-        } else {
-            console.warn(`${category} data is missing or invalid`);
-        }
+        const $categoryToggle = $(`<button class="prove-category-toggle">${category.label}</button>`);
+        const $table = createTable(category.name, transformData(data[category.name]));
+        $table.hide();
+
+        $categoryToggle.click(() => $table.slideToggle());
+        $tablesContainer.append($categoryToggle).append($table);
     });
 
-    $labelsParent.prepend($tablesContainer);
+    $toggleButton.click(() => $tablesContainer.slideToggle());
+
+    $labelsParent.prepend($container);
 }
 
 function transformData(categoryData) {
@@ -168,19 +195,59 @@ function transformData(categoryData) {
         });
     }
     
+    console.log('Transformed data:', result);
+
     return result;
 }
 
+// function createTable(title, data) {
+//     const $table = $(`
+//         <div class="expandable-table">
+//             <h3>${title}</h3>
+//             <table>
+//                 <thead>
+//                     <tr>
+//                         <th>Results</th>
+//                         <th>Triple</th>
+//                         <th>Result Sentences</th>
+//                         <th>URL</th>
+//                         <th>Modify</th>
+//                     </tr>
+//                 </thead>
+//                 <tbody>
+//                 </tbody>
+//             </table>
+//         </div>
+//     `);
+
+//     const $tbody = $table.find('tbody');
+//     data.forEach(item => {
+//         const $row = $(`
+//             <tr>
+//                 <td>${item.result}</td>
+//                 <td>${item.triple}</td>
+//                 <td>${item.result_sentences}</td>
+//                 <td><a href="${item.url}" target="_blank">Link</a></td>
+//                 <td><button class="modify-btn">Modify</button></td>
+//             </tr>
+//         `);
+//         $row.find('.modify-btn').click(() => handleModify(item));
+//         $tbody.append($row);
+//     });
+
+//     $table.find('h3').click(() => $table.find('table').slideToggle());
+
+//     return $table;
+// }
 function createTable(title, data) {
     const $table = $(`
-        <div class="expandable-table">
-            <h3>${title}</h3>
+        <div class="expandable-table" style="max-height: 300px; overflow-y: auto;">
             <table>
                 <thead>
                     <tr>
-                        <th>Results</th>
-                        <th>Triple</th>
-                        <th>Result Sentences</th>
+                        <th class="sortable" data-sort="result">Results</th>
+                        <th class="sortable" data-sort="triple">Triple</th>
+                        <th class="sortable" data-sort="result_sentence">Result Sentences</th>
                         <th>URL</th>
                         <th>Modify</th>
                     </tr>
@@ -192,28 +259,76 @@ function createTable(title, data) {
     `);
 
     const $tbody = $table.find('tbody');
-    data.forEach(item => {
+    const addRow = (item) => {
         const $row = $(`
             <tr>
                 <td>${item.result}</td>
                 <td>${item.triple}</td>
-                <td>${item.result_sentences}</td>
+                <td>${item.result_sentence}</td>
                 <td><a href="${item.url}" target="_blank">Link</a></td>
                 <td><button class="modify-btn">Modify</button></td>
             </tr>
         `);
         $row.find('.modify-btn').click(() => handleModify(item));
         $tbody.append($row);
-    });
+    };
 
-    $table.find('h3').click(() => $table.find('table').slideToggle());
+    data.forEach(addRow);
+
+    // Add sorting functionality
+    $table.find('th.sortable').click(function() {
+        const sortBy = $(this).data('sort');
+        const sortedData = [...data].sort((a, b) => a[sortBy].localeCompare(b[sortBy]));
+        $tbody.empty();
+        sortedData.forEach(addRow);
+    });
 
     return $table;
 }
 
+
 function handleModify(item) {
 
     console.log('Modifying:', item);
+}
+
+function addStyles() {
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            #prove-container { margin-bottom: 20px; }
+            #prove-toggle, .prove-category-toggle { 
+                margin: 5px;
+                padding: 5px 10px;
+                background-color: #f8f9fa;
+                border: 1px solid #a2a9b1;
+                border-radius: 2px;
+                cursor: pointer;
+            }
+            #prove-toggle:hover, .prove-category-toggle:hover {
+                background-color: #eaecf0;
+            }
+            .expandable-table {
+                border: 1px solid #a2a9b1;
+                margin-top: 5px;
+            }
+            .expandable-table table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .expandable-table th, .expandable-table td {
+                border: 1px solid #a2a9b1;
+                padding: 8px;
+                text-align: left;
+            }
+            .expandable-table th.sortable {
+                cursor: pointer;
+            }
+            .expandable-table th.sortable:hover {
+                background-color: #eaecf0;
+            }
+        `)
+        .appendTo('head');
 }
 
 //Initiate the plugin
@@ -338,6 +453,7 @@ function init()
         $link.append( $img ).prependTo( 'div.mw-indicators' )
         
         // ProVe part
+        addStyles();
         fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
             .then(response => {
                 if (!response.ok) {
