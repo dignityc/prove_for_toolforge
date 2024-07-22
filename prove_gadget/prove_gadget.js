@@ -1,4 +1,3 @@
-//importScript('User:Eavanxing/prove_test.js')
 /**
 * ProVe: Automated Provenance Verification of Knowledge Graphs against Textual Sources
 * Developers  : names (emails)
@@ -76,27 +75,52 @@ function updateProveHealthIndicator(data) {
 
 function createProveTables(data, $labelsParent) {
     const $container = $('<div id="prove-container"></div>');
+    const $buttonContainer = $('<div id="prove-buttons"></div>');
     const $toggleButton = $('<button id="prove-toggle">Prove</button>');
     const $tablesContainer = $('<div id="prove-tables" style="display: none;"></div>');
 
-    $container.append($toggleButton).append($tablesContainer);
+    $buttonContainer.append($toggleButton);
+
+    $container.append($buttonContainer).append($tablesContainer);
 
     const categories = [
-        { name: "SUPPORTS", label: "Triples with supportive reference" },
-        { name: "REFUTES", label: "Triples with unsupportive reference" },
-        { name: "NOT ENOUGH INFO", label: "Triples with not enough information reference" }
+        { name: "SUPPORTS", label: "Supportive", color: "#e6f3e6" },
+        { name: "REFUTES", label: "Unsupportive", color: "#f9e6e6" },
+        { name: "NOT ENOUGH INFO", label: "Not enough info", color: "#fff9e6" }
     ];
 
     categories.forEach(category => {
-        const $categoryToggle = $(`<button class="prove-category-toggle">${category.label}</button>`);
+        const $categoryToggle = $(`<button class="prove-category-toggle" data-category="${category.name}" style="display: none;">${category.label}</button>`);
+        $categoryToggle.css('background-color', category.color);
         const $table = createTable(category.name, transformData(data[category.name]));
         $table.hide();
 
-        $categoryToggle.click(() => $table.slideToggle());
-        $tablesContainer.append($categoryToggle).append($table);
+        $buttonContainer.append($categoryToggle);
+        $tablesContainer.append($table);
+
+        $categoryToggle.click(function() {
+            $table.slideToggle();
+            $(this).toggleClass('active');
+        });
     });
 
-    $toggleButton.click(() => $tablesContainer.slideToggle());
+    let isProveActive = false;
+
+    $toggleButton.click(function() {
+        isProveActive = !isProveActive;
+        $(this).toggleClass('active');
+
+        if (isProveActive) {
+            $('.prove-category-toggle').show().addClass('active');
+            $tablesContainer.slideDown();
+            $tablesContainer.children().show();
+        } else {
+            $('.prove-category-toggle').hide().removeClass('active');
+            $tablesContainer.slideUp(function() {
+                $tablesContainer.children().hide();
+            });
+        }
+    });
 
     $labelsParent.prepend($container);
 }
@@ -108,6 +132,7 @@ function transformData(categoryData) {
     keys.forEach(key => {
         result.push({
             qid: categoryData.qid[key] || 'N/A',
+            pid: categoryData.property_id[key] || 'N/A',
             result: categoryData.result[key] || 'N/A',
             result_sentence: categoryData.result_sentence[key] || 'N/A',
             triple: categoryData.triple[key] || 'N/A',
@@ -120,9 +145,16 @@ function transformData(categoryData) {
 }
 
 function createTable(title, data) {
+    const colorMap = {
+        "SUPPORTS": "#e6f3e6",
+        "REFUTES": "#f9e6e6",
+        "NOT ENOUGH INFO": "#fff9e6"
+    };
+    const backgroundColor = colorMap[title] || "#f0f0f0";
+
     const $table = $(`
         <div class="expandable-table" style="max-height: 300px; overflow-y: auto;">
-            <table>
+            <table data-category="${title}">
                 <thead>
                     <tr>
                         <th class="sortable" data-sort="result">Results</th>
@@ -165,10 +197,26 @@ function createTable(title, data) {
 
     return $table;
 }
+// function handleModify(item) {
 
+//     console.log('Modifying:', item.pid);
+//     alert(item.pid);
+// }
 function handleModify(item) {
-
-    console.log('Modifying:', item);
+    console.log('Modifying:', item.pid);
+    
+    var selector = `a[title="Property:${item.pid}"]`;
+    var element = document.querySelector(selector);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.style.backgroundColor = 'yellow';
+        setTimeout(() => {
+            element.style.backgroundColor = '';
+        }, 3000);
+    } else {
+        console.log(`Element with property ${item.pid} not found`);
+        alert(`Property ${item.pid} not found on this page`);
+    }
 }
 
 function addStyles() {
@@ -176,19 +224,33 @@ function addStyles() {
         .prop('type', 'text/css')
         .html(`
             #prove-container { margin-bottom: 20px; }
+            #prove-buttons {
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 5px;
+                margin-bottom: 10px;
+            }
             #prove-toggle, .prove-category-toggle { 
-                margin: 5px;
                 padding: 5px 10px;
-                background-color: #f8f9fa;
                 border: 1px solid #a2a9b1;
                 border-radius: 2px;
                 cursor: pointer;
+                width: 140px;
+                text-align: center;
+                margin-right: 5px;
+            }
+            #prove-toggle {
+                background-color: #f8f9fa;
             }
             #prove-toggle:hover, .prove-category-toggle:hover {
-                background-color: #eaecf0;
+                opacity: 0.8;
+            }
+            #prove-toggle.active, .prove-category-toggle.active {
+                font-weight: bold;
+                box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
             }
             .expandable-table {
-                border: 1px solid #a2a9b1;
+                border: 1px solid #c8c8c8;
                 margin-top: 5px;
             }
             .expandable-table table {
@@ -196,15 +258,30 @@ function addStyles() {
                 border-collapse: collapse;
             }
             .expandable-table th, .expandable-table td {
-                border: 1px solid #a2a9b1;
-                padding: 8px;
+                border: 1px solid #c8c8c8;
+                padding: 6px;
                 text-align: left;
+            }
+            .expandable-table table[data-category="SUPPORTS"] th {
+                background-color: #e6f3e6;
+            }
+            .expandable-table table[data-category="REFUTES"] th {
+                background-color: #f9e6e6;
+            }
+            .expandable-table table[data-category="NOT ENOUGH INFO"] th {
+                background-color: #fff9e6;
             }
             .expandable-table th.sortable {
                 cursor: pointer;
             }
             .expandable-table th.sortable:hover {
-                background-color: #eaecf0;
+                opacity: 0.8;
+            }
+            .expandable-table td {
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         `)
         .appendTo('head');
