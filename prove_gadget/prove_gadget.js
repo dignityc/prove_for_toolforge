@@ -1,5 +1,6 @@
+//importScript('User:Eavanxing/prove_test.js')
 /**
-* Prove: Pro-verification tool for Wikidata referrences 
+* ProVe: Automated Provenance Verification of Knowledge Graphs against Textual Sources
 * Developers  : names (emails)
 * Inspired by : Recoin: Relative Completeness Indicator (Vevake Balaraman, Simon Razniewski, and Albin Ahmeti), and COOL-WD: COmpleteness toOL for WikiData (Fariz Darari)
 */
@@ -15,89 +16,7 @@ function loadentityselector(){
     }
 }
 
-function addstatement(qid, pid, snak) {
-var api = new mw.Api();
-api.get( { action: 'query', meta: 'tokens'}).then(
-    function(aw) {
-        token = aw.query.tokens.csrftoken;
-        api.post( { 
-            action: 'wbcreateclaim',
-            entity: qid,
-            property: pid,
-            snaktype: 'value',
-            value: snak,
-            summary : "[Edited with Recoin] (Wikidata:Recoin)",
-            token: token
-            }).then(
-                   function(aw){
-                           console.log(aw);
-                           if(aw.success == 1)
-                             location.reload();
-                        else
-                            alert("Request failed. Please Check again.");
-                   });       
-            });
-}	
-
-function addtosuggestions(result, labelsUL, entityID) {
-var add = '';
-if (result.data_type=='wikibase-item')
-{
-    add = '<span class="wikibase-toolbarbutton wikibase-toolbar-item wikibase-toolbar-button wikibase-toolbar-button-add add_button"><a href=\"#\"><span class="wb-icon"/></a></span><span id="add" class="value_input" style="display:none"><input/>&nbsp;' + '<a href=\"#\">Publish</a></span>';
-}
-var $insertElem = $('<tr><td> ' +
-        '<label><a href="https://www.wikidata.org/wiki/Property:'+ result.property + '">' + 
-        result.property + '</a></td><td>' + result.label + '</td><td>' + result.base_frequency + ' '+ 
-        '</label></td><td>' + add +'</td></tr>');
-labelsUL.append($insertElem);
-
-$insertElem.find('.add_button a').on('click', function(e) {
-    e.stopPropagation();
-    e.preventDefault(); 
-    $insertElem.find('#add').slideToggle("fast");
-    $insertElem.find('.add_button a').hide();
-    $insertElem.find('.input').focus();
-});
-$(document).click(function(e) {
-        // e.stopPropagation();
-        $insertElem.find('.add_button a').show();
-        $insertElem.find("#add").hide();
-});
-$insertElem.find("#add").click(function(e) {
-  e.stopPropagation();
-});
-$insertElem.find('#add a').on('click', function(e) {
-e.stopPropagation();
-e.preventDefault();
-if (result.data_type=='wikibase-item')
-{
-    var selection = $(this).prev('input').data('entityselector').selectedEntity();
-    var snak = JSON.stringify({ "entity-type": 'item', "numeric-id": selection.id.substring(1) });
-    addstatement(entityID, result.property, snak);
-}
-});
-}
-
-
 // Prove Functions
-function updateProveHealthIndicator(data) {
-    var $indicators = $('div.mw-indicators');
-    var $existingLink = $indicators.find('a');
-    var healthValue = data.health_value || 'N/A';
-    var $newSpan = $('<span>').text(' Prove Health Lv. ' + healthValue).css('margin-left', '10px');
-    $existingLink.after($newSpan);
-
-    if (healthValue === 'Not processed yet') {
-        const $button = $('<button id="prior-process-btn">Prior</button>');
-        $button.click(() => {
-            // handle click event, call the prior queue API
-            console.log('Processing...');
-            alert('Processing...');
-        });
-        $indicators.append($button);
-    }
-}
-
 function updateProveHealthIndicator(data) {
     var $indicators = $('div.mw-indicators');
     var $existingLink = $indicators.find('a');
@@ -109,14 +28,45 @@ function updateProveHealthIndicator(data) {
         healthValue = 'N/A';
     }
 
+    var imageUrl = '';
+    if (healthValue !== 'N/A' && healthValue !== 'Not processed yet') {
+        var numericValue = parseFloat(healthValue);
+        var imageNumber = 0;
+        if (numericValue >= 0.2 && numericValue < 0.4) imageNumber = 1;
+        else if (numericValue >= 0.4 && numericValue < 0.6) imageNumber = 2;
+        else if (numericValue >= 0.6 && numericValue < 0.8) imageNumber = 3;
+        else if (numericValue >= 0.8 && numericValue <= 1) imageNumber = 4;
 
-    var $newSpan = $('<span>').text(' Health lv.: ' + healthValue).css('margin-left', '10px');
-    $existingLink.after($newSpan);
+        imageUrl = `https://raw.githubusercontent.com/dignityc/prove_for_toolforge/main/${imageNumber}.png`;
+    }
+
+    var $healthIndicator = $('<span>').css('margin-left', '10px');
+    if (imageUrl) {
+        var $imageLink = $('<a>')
+            .attr('href', 'https://www.wikidata.org/wiki/Wikidata:ProVe')
+            .attr('target', '_blank')
+            .attr('title', 'Click to visit Wikidata:ProVe page');
+        
+        $imageLink.append(
+            $('<img>')
+                .attr('src', imageUrl)
+                .css({
+                    'vertical-align': 'middle',
+                    'margin-right': '5px',
+                    'cursor': 'pointer',
+                    'width': '20px',  
+                    'height': 'auto'  
+                })
+        );
+        
+        $healthIndicator.append($imageLink);
+    }
+    $healthIndicator.append(' Health lv.: ' + healthValue);
+    $existingLink.after($healthIndicator);
 
     if (healthValue === 'Not processed yet') {
-        const $button = $('<button id="prior-process-btn">Prior</button>');
+        const $button = $('<button id="prior-process-btn">Priortise</button>');
         $button.click(() => {
-            // handle click event, call the prior queue API
             console.log('Processing...');
             alert('Processing...');
         });
@@ -216,7 +166,6 @@ function createTable(title, data) {
     return $table;
 }
 
-
 function handleModify(item) {
 
     console.log('Modifying:', item);
@@ -272,8 +221,7 @@ console.log('prove-plugin loaded');
 var entityID = mw.config.get( 'wbEntityId' );
 var lang = mw.config.get( 'wgUserLanguage' );
 var pageid = "48139757";
-var infoText ='';
-var title = "Most relevant properties which are absent";
+
 if ( !entityID ) 
 {
     return;
@@ -290,92 +238,11 @@ function init()
     if (labelsParent.length < 1) 
     {
         return;
-    }	
-    var labelsDOM = $('<div id="recoin-property" style="display:none;overflow:auto;max-height:300px"></div>');
-    var labelsUL = $('<table id="props" frame="box" style="margin-left:30px"></table>');
-    var tablehead = '<thead align="left"><tr bgcolor="#DCDCDC"><td>Property ID</td><td>Label</td><td>Relative</td><td>Add Claim</td></tr></thead>';
-    labelsUL.append(tablehead);
-    var labelsText = $('<div class="wikibase-entitytermsview-recoinproperty-toggler ui-toggler ui-toggler-toggle ui-state-default" id = "recoin-title" style="display:inline;"></div>');
-    var translate_help = $('<span class="wikibase-entitytermsview-entitytermsforlanguagelistview-configure" id="translate"><a href="https://www.wikidata.org/wiki/Wikidata:Recoin/translation"> [Help with translations]</a></span>');
-    var help = true;
-
-    $.getJSON( 'https://www.wikidata.org/w/api.php?action=query&prop=extracts&titles=Wikidata:Recoin/translation&format=json', 
-       function ( result )
-       {
-           var desc = result.query.pages[pageid].extract;
-           desc = desc.replace(/<p>/g, "");
-           desc = desc.replace(/<\/p>/g, "");
-           desc = desc.split("\n");
-        var complete = result.completeness_level;
-        var $link = $('<a href="https://www.wikidata.org/wiki/Wikidata:Recoin">'),
-            $img = $('<img>').css('margin-bottom', 12+'px');
-           for (var i=0; i< desc.length; i++)
-           {
-               var s = desc[i].split(";");
-               if (s[0]===lang && s.length>=7)
-               {
-                infoText = s.slice(2,7).reverse();
-                title = 'Recoin: ' +s[1];
-                help = false;
-                break;
-               }
-           }
-           var toggleSlider = $('<span class = "ui-toggler-icon ui-icon ui-icon-triangle-1-e" id = "status"></span>\
-        <span class="ui-toggler-label">'+ mw.html.escape( title ) +'</span>');
-        labelsText.append(toggleSlider);
-        labelsParent.append(labelsText)
-           if (help==1)
-           {
-               labelsParent.append(translate_help);
-           }
-        });
-    $.getJSON( 'https://recoin.toolforge.org/getmissingattributes.php?callback=?', 'subject=' + entityID + '&lang=' + lang + '&n=20',
-           function ( result ) 
-           {
-            for (var i=0; i< result.missing_properties.length; i++) 
-            {
-                addtosuggestions(result.missing_properties[i], labelsUL, entityID);
-                setTimeout(loadentityselector, 100);
-            }
-            labelsDOM.append(labelsUL);
-            labelsParent.append(labelsDOM);
-        $("#recoin-title" ).click(function() {
-        $( "#recoin-property" ).slideToggle();
-        $("#status").toggleClass("ui-icon-triangle-1-e ui-icon-triangle-1-s ui-toggler-icon3dtrans");
-        });
-        var complete = result.completeness_level;
-        var $link = $( '<a href="https://www.wikidata.org/wiki/Wikidata:Recoin">' ),
-            $img = $( '<img>' ).css('margin-bottom',12+'px');
-        if (infoText === '')
-        {
-            switch( complete ){
-                case '5':
-                    infoText = 'This page provides very detailed information.';
-                break;
-                case '4':
-                    infoText = 'This page provides detailed information.';
-                break;
-                case '3':
-                    infoText = 'This page provides a fair amount of information.';
-                break;
-                case '2':
-                    infoText = 'This page provides basic information.';
-                break;
-                case '1':
-                    infoText = 'This page provides very basic information.';
-                break;
-            }
-        }
-        else
-        {
-            infoText = infoText[parseInt(complete)-1];
-        }
-        $img.attr( 'src', 'https://recoin.toolforge.org/progressbar/' + complete + '.png' );				
-        $img.attr( 'title',  infoText);
-        $img.attr( 'alt',  infoText);
-        $link.append( $img ).prependTo( 'div.mw-indicators' )
-        
-        // ProVe part
+    }
+    var $link = $( '<a href="https://www.wikidata.org/wiki/Wikidata:ProVe">' );
+    var $img = $( '<img>' ).css('margin-bottom',15+'px');
+    $link.append( $img ).prependTo( 'div.mw-indicators' )
+   
         addStyles();
         fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
             .then(response => {
@@ -392,7 +259,6 @@ function init()
             .catch(error => {
                 console.error('Error fetching CompResult:', error);
             });
-        });
     }
 $( function () {
     // init();
