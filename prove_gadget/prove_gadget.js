@@ -16,7 +16,8 @@ function loadentityselector(){
 }
 
 // Prove Functions
-function updateProveHealthIndicator(data) {
+function updateProveHealthIndicator(data,qid) {
+    console.log(data)
     var $indicators = $('div.mw-indicators');
     var $existingLink = $indicators.find('a');
     var healthValue = data.health_value;
@@ -64,10 +65,31 @@ function updateProveHealthIndicator(data) {
     $existingLink.after($healthIndicator);
 
     if (healthValue === 'Not processed yet') {
-        const $button = $('<button id="prior-process-btn">Priortise</button>');
+        const $button = $('<button id="prior-process-btn">Prioritise</button>');
         $button.click(() => {
-            console.log('Processing...');
-            alert('Processing...');
+            const apiUrl = `https://kclwqt.sites.er.kcl.ac.uk/api/requests/requestItem?qid=${qid}`;
+
+            $button.prop('disabled', true).text('Processing...');
+            
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(responseData => {
+                    console.log('API Response:', responseData);
+                    alert('This item has been prioritized for processing. Please check back later :)');
+                    // updateProveHealthIndicator(responseData);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to prioritise item. Please try again later.');
+                })
+                .finally(() => {
+                    $button.prop('disabled', false).text('Prioritise');
+                });
         });
         $indicators.append($button);
     }
@@ -153,7 +175,7 @@ function createTable(title, data) {
     const backgroundColor = colorMap[title] || "#f0f0f0";
 
     const $table = $(`
-        <div class="expandable-table" style="max-height: 300px; overflow-y: auto;">
+        <div class="expandable-table">
             <table data-category="${title}">
                 <thead>
                     <tr>
@@ -178,7 +200,7 @@ function createTable(title, data) {
                 <td>${item.triple}</td>
                 <td>${item.result_sentence}</td>
                 <td><a href="${item.url}" target="_blank">Link</a></td>
-                <td><button class="modify-btn">Modify</button></td>
+                <td><button class="modify-btn">edit</button></td>
             </tr>
         `);
         $row.find('.modify-btn').click(() => handleModify(item));
@@ -197,14 +219,10 @@ function createTable(title, data) {
 
     return $table;
 }
-// function handleModify(item) {
 
-//     console.log('Modifying:', item.pid);
-//     alert(item.pid);
-// }
 function handleModify(item) {
     console.log('Modifying:', item.pid);
-    
+    //alert('Modify button clicked for ' + item.pid);
     var selector = `a[title="Property:${item.pid}"]`;
     var element = document.querySelector(selector);
     if (element) {
@@ -252,6 +270,8 @@ function addStyles() {
             .expandable-table {
                 border: 1px solid #c8c8c8;
                 margin-top: 5px;
+                max-height: 300px;
+                overflow-y: auto;
             }
             .expandable-table table {
                 width: 100%;
@@ -261,6 +281,7 @@ function addStyles() {
                 border: 1px solid #c8c8c8;
                 padding: 6px;
                 text-align: left;
+                vertical-align: top;
             }
             .expandable-table table[data-category="SUPPORTS"] th {
                 background-color: #e6f3e6;
@@ -273,15 +294,15 @@ function addStyles() {
             }
             .expandable-table th.sortable {
                 cursor: pointer;
+                position: sticky;
+                top: 0;
+                background-color: #f8f9fa;
             }
             .expandable-table th.sortable:hover {
                 opacity: 0.8;
             }
             .expandable-table td {
-                max-width: 150px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                word-break: break-word;
             }
         `)
         .appendTo('head');
@@ -330,10 +351,11 @@ function init()
             })
             .then(data => {
                 console.log('CompResult API Response:', data);
-                updateProveHealthIndicator(data);
+                updateProveHealthIndicator(data,entityID);
                 createProveTables(data, labelsParent);
             })
             .catch(error => {
+            	alert('ProVe is currently processing data for this item. Please try again later. Thanks!')
                 console.error('Error fetching CompResult:', error);
             });
     }
