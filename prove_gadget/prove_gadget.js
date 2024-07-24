@@ -1,6 +1,6 @@
 /**
-* ProVe: Automated Provenance Verification of Knowledge Graphs against Textual Sources
-* Developers  : names (emails)
+* ProVe: UI extension for automated PROovenance VErification of knowledge graphs against textual sources
+* Developers  : Yiwen Xing (yiwen.xing@kcl.ac.uk), Jongmo Kim (jongmo.kim@kcl.ac.uk), Odinaldo Rodrigues, Albert Merono Penuela
 * Inspired by : Recoin: Relative Completeness Indicator (Vevake Balaraman, Simon Razniewski, and Albin Ahmeti), and COOL-WD: COmpleteness toOL for WikiData (Fariz Darari)
 */
 function loadentityselector(){
@@ -16,8 +16,8 @@ function loadentityselector(){
 }
 
 // Prove Functions
-function updateProveHealthIndicator(data,qid) {
-    console.log(data)
+function updateProveHealthIndicator(data, qid) {
+    console.log(data);
     var $indicators = $('div.mw-indicators');
     var $existingLink = $indicators.find('a');
     var healthValue = data.health_value;
@@ -26,6 +26,8 @@ function updateProveHealthIndicator(data,qid) {
         healthValue = healthValue.toFixed(2);
     } else if (healthValue === undefined || healthValue === null) {
         healthValue = 'N/A';
+    } else if (healthValue === 'processing error') {
+        healthValue = 'Not processed yet';
     }
 
     var imageUrl = '';
@@ -40,31 +42,75 @@ function updateProveHealthIndicator(data,qid) {
         imageUrl = `https://raw.githubusercontent.com/dignityc/prove_for_toolforge/main/${imageNumber}.png`;
     }
 
-    var $healthIndicator = $('<span>').css('margin-left', '10px');
-    if (imageUrl) {
-        var $imageLink = $('<a>')
-            .attr('href', 'https://www.wikidata.org/wiki/Wikidata:ProVe')
-            .attr('target', '_blank')
-            .attr('title', 'Click to visit Wikidata:ProVe page');
-        
-        $imageLink.append(
-            $('<img>')
-                .attr('src', imageUrl)
-                .css({
-                    'vertical-align': 'middle',
-                    'margin-right': '5px',
-                    'cursor': 'pointer',
-                    'width': '20px',  
-                    'height': 'auto'  
-                })
-        );
-        
-        $healthIndicator.append($imageLink);
-    }
-    $healthIndicator.append(' Health lv.: ' + healthValue);
-    $existingLink.after($healthIndicator);
+    var $healthIndicator = $('<span>').css({
+        'margin-left': '10px',
+        'cursor': 'pointer',
+        'position': 'relative',
+        'display': 'inline-flex',
+    	'align-items': 'center'
+    });
+	$healthIndicator.append('ProVe Score: ' + healthValue + ' ');
+	
+	if (imageUrl) {
+	    var $image = $('<img>')
+	        .attr('src', imageUrl)
+	        .css({
+	            'vertical-align': 'middle',
+	            'margin-left': '5px',
+	            'width': '20px',  
+	            'height': 'auto'  
+	        });
+	    
+	    $healthIndicator.append($image);
+	}
 
-    if (healthValue === 'Not processed yet') {
+    var totalCount = Object.values(data.SUPPORTS.result || {}).length +
+                     Object.values(data.REFUTES.result || {}).length +
+                     Object.values(data['NOT ENOUGH INFO'].result || {}).length;
+    
+    var supportsCount = Object.values(data.SUPPORTS.result || {}).length;
+    var refutesCount = Object.values(data.REFUTES.result || {}).length;
+    var notEnoughInfoCount = Object.values(data['NOT ENOUGH INFO'].result || {}).length;
+    
+    var hoverContent = `
+        Supports: ${supportsCount} (${(supportsCount / totalCount * 100).toFixed(1)}%)<br>
+        Refutes: ${refutesCount} (${(refutesCount / totalCount * 100).toFixed(1)}%)<br>
+        Not Enough Info: ${notEnoughInfoCount} (${(notEnoughInfoCount / totalCount * 100).toFixed(1)}%)
+    `;
+    
+    $healthIndicator.hover(
+        function() {
+            var $hoverBox = $('<div>')
+                .html(hoverContent)
+                .css({
+                    position: 'absolute',
+                    top: 'calc(100% + 5px)',  // Move it 5px below the indicator
+	                left: '50%',
+	                transform: 'translateX(-50%)',  // Center it horizontally
+	                backgroundColor: 'white',
+	                border: '1px solid black',
+	                padding: '5px',
+	                zIndex: 1000,
+	                whiteSpace: 'nowrap',
+	                fontSize: '0.9em',  // Make the text slightly smaller
+	                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'  // Add a subtle shadow
+                });
+            $(this).append($hoverBox);
+        },
+        function() {
+            $(this).find('div').remove();
+        }
+    );
+
+    var $proveLink = $('<a>')
+        .attr('href', 'https://www.wikidata.org/wiki/Wikidata:ProVe')
+        .attr('target', '_blank')
+        .attr('title', 'Click to visit Wikidata:ProVe page')
+        .append($healthIndicator);
+
+    $existingLink.after($proveLink);
+
+    if (healthValue === 'Not processed yet' || healthValue ==='processing error') {
         const $button = $('<button id="prior-process-btn">Prioritise</button>');
         $button.click(() => {
             const apiUrl = `https://kclwqt.sites.er.kcl.ac.uk/api/requests/requestItem?qid=${qid}`;
@@ -92,7 +138,7 @@ function updateProveHealthIndicator(data,qid) {
                 });
         });
         $indicators.append($button);
-    }
+	}
 }
 
 function createProveTables(data, $labelsParent) {
@@ -173,17 +219,25 @@ function createTable(title, data) {
         "NOT ENOUGH INFO": "#fff9e6"
     };
     const backgroundColor = colorMap[title] || "#f0f0f0";
-
+    
+    const tbheaderMap = {
+        "SUPPORTS": "Supported by",
+        "REFUTES": "Refuted by",
+        "NOT ENOUGH INFO": "Not Enough Information"
+    };
+	
+	const resultHeader = tbheaderMap[title] || "ProVe Result Sentences";
+	
     const $table = $(`
         <div class="expandable-table">
             <table data-category="${title}">
                 <thead>
                     <tr>
-                        <th class="sortable" data-sort="result">Results</th>
+                        <!--th class="sortable" data-sort="result">Results</th-->
                         <th class="sortable" data-sort="triple">Triple</th>
-                        <th class="sortable" data-sort="result_sentence">Result Sentences</th>
+                        <th class="sortable" data-sort="result_sentence">${resultHeader}</th>
                         <th>URL</th>
-                        <th>Modify</th>
+                        <!--th>Modify</th-->
                     </tr>
                 </thead>
                 <tbody>
@@ -196,11 +250,12 @@ function createTable(title, data) {
     const addRow = (item) => {
         const $row = $(`
             <tr>
-                <td>${item.result}</td>
-                <td>${item.triple}</td>
+                <!--td>${item.result}</td-->
+                <!--td>${item.triple}</td-->
+                <td><a class="modify-btn">${item.triple}</a></td>
                 <td>${item.result_sentence}</td>
                 <td><a href="${item.url}" target="_blank">Link</a></td>
-                <td><button class="modify-btn">edit</button></td>
+                <!--td><button class="modify-btn">edit</button></td-->
             </tr>
         `);
         $row.find('.modify-btn').click(() => handleModify(item));
@@ -221,20 +276,80 @@ function createTable(title, data) {
 }
 
 function handleModify(item) {
-    console.log('Modifying:', item.pid);
-    //alert('Modify button clicked for ' + item.pid);
-    var selector = `a[title="Property:${item.pid}"]`;
-    var element = document.querySelector(selector);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.style.backgroundColor = 'yellow';
-        setTimeout(() => {
-            element.style.backgroundColor = '';
-        }, 3000);
-    } else {
+    console.log('Modifying:', item.pid, item.url);
+    
+    var pidElement = document.querySelector(`a[title="Property:${item.pid}"]`);
+    
+    if (!pidElement) {
         console.log(`Element with property ${item.pid} not found`);
         alert(`Property ${item.pid} not found on this page`);
+        return;
     }
+
+    pidElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    console.log('Scrolled to PID element');
+
+    var statementGroupView = pidElement.closest('.wikibase-statementgroupview');
+    if (!statementGroupView) {
+        console.log('Statement group view not found');
+        return;
+    }
+
+    var statementViews = statementGroupView.querySelectorAll('.wikibase-statementview');
+    
+    function processStatements(index) {
+        if (index >= statementViews.length) {
+            console.log('URL not found in any statement');
+            return;
+        }
+
+        var statementView = statementViews[index];
+        var referencesContainer = statementView.querySelector('.wikibase-statementview-references');
+        var referencesHeading = statementView.querySelector('.wikibase-statementview-references-heading');
+
+        if (referencesContainer && referencesHeading && referencesContainer.offsetParent === null) {
+            var toggler = referencesHeading.querySelector('.ui-toggler');
+            if (toggler) {
+                toggler.click();
+                console.log('Clicked toggler to expand references');
+                setTimeout(() => checkForUrl(statementView, index), 300);
+            } else {
+                checkForUrl(statementView, index);
+            }
+        } else {
+            checkForUrl(statementView, index);
+        }
+    }
+
+    function checkForUrl(statementView, index) {
+        var urlElement = statementView.querySelector(`a[href="${item.url}"]`);
+        if (urlElement) {
+            highlightUrl(urlElement);
+        } else {
+            processStatements(index + 1);
+        }
+    }
+
+    function highlightUrl(urlElement) {
+        var originalStyle = urlElement.getAttribute('style') || '';
+        
+        urlElement.style.backgroundColor = 'yellow';
+        urlElement.style.padding = '2px';
+        urlElement.style.border = '1px solid #000';
+        
+        urlElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        console.log('Applied highlight style');
+
+        setTimeout(() => {
+            urlElement.setAttribute('style', originalStyle);
+            console.log('Restored original style');
+        }, 3000);
+        
+        console.log(`Highlighted URL: ${item.url}`);
+    }
+
+    processStatements(0);
 }
 
 function addStyles() {
@@ -268,6 +383,7 @@ function addStyles() {
                 box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
             }
             .expandable-table {
+                width: 95%;
                 border: 1px solid #c8c8c8;
                 margin-top: 5px;
                 max-height: 300px;
@@ -332,17 +448,141 @@ var labelsParent;
 function init() 
 {
     // Element into which to add the missing attributes
-    labelsParent = $('#wb-item-' + entityID + ' div.wikibase-entitytermsview-heading');
+    var labelsParent = $('#wb-item-' + entityID + ' div.wikibase-entitytermsview-heading');
     if (labelsParent.length < 1) 
     {
         return;
     }
     var $link = $( '<a href="https://www.wikidata.org/wiki/Wikidata:ProVe">' );
-    var $img = $( '<img>' ).css('margin-bottom',15+'px');
-    $link.append( $img ).prependTo( 'div.mw-indicators' )
+    var $img = $( '<img>' ).css('margin-bottom', '15px');
+    $link.append( $img ).prependTo( 'div.mw-indicators' );
    
-        addStyles();
-        fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
+    addStyles();
+    
+    // Check item api status
+    fetch(`https://kclwqt.sites.er.kcl.ac.uk//api/items/checkItemStatus?qid=${entityID}`)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Status API Response:', data);
+        const flatdata = Array.isArray(data) ? data[0] : data;
+        const status = flatdata.status;
+        console.log(status);
+        let statusText = '';
+        let imageUrl = '';
+        let showPrioritiseButton = false;
+
+        if (status !== 'completed') {
+            if (status === 'in queue') {
+                statusText = 'ProVe is processing this item';
+                imageUrl = 'https://raw.githubusercontent.com/dignityc/prove_for_toolforge/main/pending.png';
+            } else if (status === 'error' || status === 'Not processed yet') {
+                statusText = 'ProVe has not processed this item yet';
+                imageUrl = 'https://raw.githubusercontent.com/dignityc/prove_for_toolforge/main/warning.png';
+                showPrioritiseButton = true;
+            } else {
+                statusText = 'Status: ' + status;
+                imageUrl = 'https://raw.githubusercontent.com/dignityc/prove_for_toolforge/main/warning.png';
+            }
+            
+            // Create status indicator
+			var $statusIndicator = $('<a>')
+			    .attr('href', 'https://www.wikidata.org/wiki/Wikidata:ProVe')
+			    .attr('target', '_blank')
+			    .css({
+			        'margin-left': '10px',
+			        'cursor': 'pointer',
+			        'position': 'relative',
+			        'display': 'inline-flex',
+			        'align-items': 'center',
+			        'text-decoration': 'none',
+			        'color': 'inherit'
+			    });
+			
+			// Add ProVe text
+			$statusIndicator.append($('<span>').text('ProVe'));
+			
+			// Add image if available
+			if (imageUrl) {
+			    var $image = $('<img>')
+			        .attr('src', imageUrl)
+			        .css({
+			            'vertical-align': 'middle',
+			            'margin-left': '5px',
+			            'width': '20px',  
+			            'height': 'auto'  
+			        });
+			    
+			    $statusIndicator.append($image);
+			}
+			
+			// Add hover functionality
+			$statusIndicator.hover(
+			    function() {
+			        var $hoverBox = $('<div>')
+			            .text(statusText)
+			            .css({
+			                position: 'absolute',
+			                top: 'calc(100% + 5px)',
+			                left: '50%',
+			                transform: 'translateX(-50%)',
+			                backgroundColor: 'white',
+			                border: '1px solid black',
+			                padding: '5px',
+			                zIndex: 1000,
+			                whiteSpace: 'nowrap',
+			                fontSize: '0.9em',
+			                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+			            });
+			        $(this).append($hoverBox);
+			    },
+			    function() {
+			        $(this).find('div').remove();
+			    }
+			);
+			
+			// Add status text to labelsParent
+			labelsParent.prepend($('<span>').text(statusText).css('margin-right', '10px'));
+			
+			// Append the combined element to mw-indicators
+			$('div.mw-indicators').append($statusIndicator);
+  
+            // Add prioritise button if needed
+            if (showPrioritiseButton) {
+                const $button = $('<button id="prior-process-btn">Prioritise</button>');
+                $button.click(() => {
+                    const apiUrl = `https://kclwqt.sites.er.kcl.ac.uk/api/requests/requestItem?qid=${entityID}`;
+
+                    $button.prop('disabled', true).text('Processing...');
+                    
+                    fetch(apiUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(responseData => {
+                            console.log('API Response:', responseData);
+                            alert('This item has been prioritized for processing. Please check back later :)');
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Failed to prioritise item. Please try again later.');
+                        })
+                        .finally(() => {
+                            $button.prop('disabled', false).text('Prioritise');
+                        });
+                });
+                $('div.mw-indicators').append($button);
+            }
+        } else {
+            // If status is complete, fetch ProVe data and initialize main functionality
+            fetch(`https://kclwqt.sites.er.kcl.ac.uk/api/items/CompResult?qid=${entityID}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -351,14 +591,27 @@ function init()
             })
             .then(data => {
                 console.log('CompResult API Response:', data);
-                updateProveHealthIndicator(data,entityID);
+                updateProveHealthIndicator(data, entityID);
                 createProveTables(data, labelsParent);
             })
             .catch(error => {
-            	alert('ProVe is currently processing data for this item. Please try again later. Thanks!')
                 console.error('Error fetching CompResult:', error);
+                alert('An error occurred while fetching ProVe data. Please try again later.');
             });
-    }
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching item status:', error);
+        var $errorIndicator = $('<span>').text('Error checking ProVe status').css({
+            'margin-left': '10px',
+            'cursor': 'default',
+            'color': 'red'
+        });
+        $('div.mw-indicators').append($errorIndicator);
+    });
+}
+
+
 $( function () {
     // init();
     mw.hook( 'wikipage.content' ).add( init );
