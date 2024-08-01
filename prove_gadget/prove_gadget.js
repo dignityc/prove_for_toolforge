@@ -1,6 +1,6 @@
 /**
 * ProVe: UI extension for automated PROovenance VErification of knowledge graphs against textual sources
-* Developers  : Yiwen Xing (yiwen.xing@kcl.ac.uk), Jongmo Kim (jongmo.kim@kcl.ac.uk), Odinaldo Rodrigues, Albert Merono Penuela
+* Developers  : Jongmo Kim (jongmo.kim@kcl.ac.uk), Yiwen Xing (yiwen.xing@kcl.ac.uk), Odinaldo Rodrigues, Albert Merono Penuela, ...
 * Inspired by : Recoin: Relative Completeness Indicator (Vevake Balaraman, Simon Razniewski, and Albin Ahmeti), and COOL-WD: COmpleteness toOL for WikiData (Fariz Darari)
 */
 function loadentityselector(){
@@ -16,6 +16,90 @@ function loadentityselector(){
 }
 
 // Prove Functions
+function calculateStatementStats() {
+    const totalStatements = $('.wikibase-statementview').length;
+    const missingReferences = $('.wikibase-statementview-references-heading .ui-toggler-label:contains("0 references")').length;
+    return {
+        total: totalStatements,
+        missing: missingReferences
+    };
+}
+
+function displayStatementStats() {
+    const stats = calculateStatementStats();
+    console.log('Calculated stats:', stats);
+
+    const $statsContainer = $('<div id="prove-stats"></div>').css({
+        'margin-bottom': '10px',
+        'font-weight': 'bold'
+    });
+    $statsContainer.text(`This item has ${stats.total-stats.missing} out of ${stats.total} (${(100*(1-stats.missing/stats.total)).toFixed(1)}%) statements supported with references. Currently, ${stats.missing} statements have no references and need your support.`);
+    
+    const $focusButton = $('<button>Start Adding reference to unreferenced statements</button>').css({
+        'margin-left': '10px',
+	    'padding': '5px 5px',
+	    'font-size': '12px',
+	    'font-weight': 'bold',
+	    'color': 'black',
+	    'background-color': 'lightgrey',
+	    'border': 'none',
+	    'border-radius': '5px',
+	    'cursor': 'pointer',
+	    'box-shadow': '0 4px 6px rgba(0, 0, 0, 0.1)'
+    }).hover(function() {
+	    $(this).css({
+	        'background-color': 'lightgrey',
+	        'transform': 'scale(1.005)'
+	    });
+	}, function() {
+	    $(this).css({
+	        'background-color': 'lightgrey',
+	        'transform': 'scale(1)'
+	    });
+	}).click(function() {
+        console.log('Focus button clicked');
+        const $firstMissing = $('.wikibase-statementview-references-heading .ui-toggler-label:contains("0 references")').first();
+        console.log('First missing reference statement found:', $firstMissing.length > 0);
+
+        if ($firstMissing.length) {
+            $firstMissing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('Scrolled to first missing reference statement');
+            const $addReferenceLink = $firstMissing.closest('.wikibase-statementview').find('.wikibase-statementview-references .wikibase-addtoolbar-container');
+            console.log('Add reference link found:', $addReferenceLink.length > 0);
+
+            if ($addReferenceLink.length) {
+                const originalBackgroundColor = $addReferenceLink.css('background-color');
+                const originalTransition = $addReferenceLink.css('transition');
+                
+                console.log('Original background color:', originalBackgroundColor);
+                console.log('Original transition:', originalTransition);
+
+                $addReferenceLink.css({
+                    'background-color': 'yellow',
+                    'transition': 'background-color 0.5s ease-in-out'
+                });
+                console.log('Applied yellow background to add reference link');
+                
+                setTimeout(() => {
+                    $addReferenceLink.css({
+                        'background-color': originalBackgroundColor,
+                        'transition': originalTransition
+                    });
+                    console.log('Restored original styles after 4 seconds');
+                }, 4000);
+            } else {
+                console.log('Add reference link not found');
+            }
+        } else {
+            console.log('No statements missing references found');
+            alert('No statements missing references found.');
+        }
+    });
+    
+    $statsContainer.append($focusButton);
+    return $statsContainer;
+}
+
 function updateProveHealthIndicator(data, qid) {
     console.log(data);
     var $indicators = $('div.mw-indicators');
@@ -49,7 +133,7 @@ function updateProveHealthIndicator(data, qid) {
         'display': 'inline-flex',
     	'align-items': 'center'
     });
-	$healthIndicator.append('ProVe Score: ' + healthValue + ' ');
+	$healthIndicator.append('Reference Score: ' + healthValue + ' ');
 	
 	if (imageUrl) {
 	    var $image = $('<img>')
@@ -143,18 +227,22 @@ function updateProveHealthIndicator(data, qid) {
 
 function createProveTables(data, $labelsParent) {
     const $container = $('<div id="prove-container"></div>');
+    const $statsContainer = displayStatementStats().hide();
     const $buttonContainer = $('<div id="prove-buttons"></div>');
-    const $toggleButton = $('<button id="prove-toggle">Prove</button>');
+    const $toggleButton = $('<button id="prove-toggle">Check Reference Quality</button>');
     const $tablesContainer = $('<div id="prove-tables" style="display: none;"></div>');
+    
+    
 
     $buttonContainer.append($toggleButton);
-
-    $container.append($buttonContainer).append($tablesContainer);
+	
+	// $container.append($statsContainer);
+    $container.append($buttonContainer).append($statsContainer).append($tablesContainer);
 
     const categories = [
-        { name: "SUPPORTS", label: "Supportive", color: "#e6f3e6" },
-        { name: "REFUTES", label: "Unsupportive", color: "#f9e6e6" },
-        { name: "NOT ENOUGH INFO", label: "Not enough info", color: "#fff9e6" }
+        { name: "REFUTES", label: "References to be checked", color: "#f9e6e6" },
+        { name: "NOT ENOUGH INFO", label: "References to be checked", color: "#fff9e6" },
+        { name: "SUPPORTS", label: "References possibly support the triple", color: "#e6f3e6" }
     ];
 
     categories.forEach(category => {
@@ -180,10 +268,12 @@ function createProveTables(data, $labelsParent) {
 
         if (isProveActive) {
             $('.prove-category-toggle').show().addClass('active');
+            $statsContainer.slideDown();
             $tablesContainer.slideDown();
             $tablesContainer.children().show();
         } else {
             $('.prove-category-toggle').hide().removeClass('active');
+            $statsContainer.slideUp();
             $tablesContainer.slideUp(function() {
                 $tablesContainer.children().hide();
             });
@@ -221,9 +311,9 @@ function createTable(title, data) {
     const backgroundColor = colorMap[title] || "#f0f0f0";
     
     const tbheaderMap = {
-        "SUPPORTS": "Supported by",
-        "REFUTES": "Refuted by",
-        "NOT ENOUGH INFO": "Not Enough Information"
+        "SUPPORTS": "Sentence in external URL found to possibly support the triple",
+        "REFUTES": "Sentence in external URL to be checked, possibly not authoritative",
+        "NOT ENOUGH INFO": "Sentence in external URL to be checked, possibly not relevant"
     };
 	
 	const resultHeader = tbheaderMap[title] || "ProVe Result Sentences";
@@ -259,6 +349,7 @@ function createTable(title, data) {
             </tr>
         `);
         $row.find('.modify-btn').click(() => handleModify(item));
+        $row.find('.modify-btn').attr('title', 'Click to view triple and edit');
         $tbody.append($row);
     };
 
@@ -323,8 +414,18 @@ function handleModify(item) {
 
     function checkForUrl(statementView, index) {
         var urlElement = statementView.querySelector(`a[href="${item.url}"]`);
+        var previousEditLink = urlElement.closest('.wikibase-statementview').querySelector('.wikibase-edittoolbar-container');
+		
+		if (previousEditLink) {
+		    highlightUrl(previousEditLink);
+		    console.log('Found the edit link:', previousEditLink);
+		} else {
+		    console.log('No edit link found.');
+		}
+        
         if (urlElement) {
             highlightUrl(urlElement);
+            
         } else {
             processStatements(index + 1);
         }
@@ -368,7 +469,7 @@ function addStyles() {
                 border: 1px solid #a2a9b1;
                 border-radius: 2px;
                 cursor: pointer;
-                width: 140px;
+                width: 160px;
                 text-align: center;
                 margin-right: 5px;
             }
@@ -419,6 +520,19 @@ function addStyles() {
             }
             .expandable-table td {
                 word-break: break-word;
+            }
+            #prove-stats {
+                width: 93%;
+                background-color: #f8f9fa;
+                padding: 5px 10px;
+                border: 1px solid #a2a9b1;
+                border-radius: 2px;
+                margin-bottom: 10px;
+                margin-right: 10px;
+            }
+            #prove-stats button {
+                padding: 2px 5px;
+                margin-left: 0px;
             }
         `)
         .appendTo('head');
